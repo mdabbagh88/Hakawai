@@ -16,6 +16,7 @@
 
 #import "HKWTextView.h"
 #import "HKWMentionsPlugin.h"
+#import "HKWMentionsAttribute.h"
 
 BOOL HKW_systemVersionIsAtLeast(NSString *version);
 
@@ -68,6 +69,13 @@ BOOL HKW_systemVersionIsAtLeast(NSString *version);
         mentionsPlugin.delegate = [MentionsManager sharedInstance];
         mentionsPlugin.stateChangeDelegate = [MentionsManager sharedInstance];
         self.textView.controlFlowPlugin = mentionsPlugin;
+        
+        NSString *str = @"💖بَنَآتِي رُوْحِي💖";
+        NSUInteger length = str.length;
+        self.textView.text = str;
+        HKWMentionsAttribute *mention = [HKWMentionsAttribute mentionWithText:str identifier:@"1"];
+        mention.range = NSMakeRange(0, length);
+        [mentionsPlugin addMention:mention];
     }
 }
 

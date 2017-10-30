@@ -31,50 +31,52 @@ typedef NSMutableArray RectValuesBuffer;
 }
 
 - (void)drawBackgroundForGlyphRange:(NSRange)glyphsToShow atPoint:(CGPoint)origin {
-    [super drawBackgroundForGlyphRange:glyphsToShow atPoint:origin];
+    @synchronized(self) {
+        [super drawBackgroundForGlyphRange:glyphsToShow atPoint:origin];
 
-    // -------------------------------------------------------------------------------------------------------------- //
-    // Handle drawing background for the new rounded rect background attribute.
-    NSArray *tuples = [self roundedRectBackgroundAttributeTuplesInTextStorage:self.textStorage
-                                                                  withinRange:glyphsToShow];
-    NSArray *roundedRectBackgroundRectArrays = [self rectArraysForRoundedRectBackgroundAttributeTuples:tuples
-                                                                                       inTextContainer:self.textContainers[0]];
-    if ([roundedRectBackgroundRectArrays count] == 0) {
-        return;
-    }
-
-    NSAssert([tuples count] == [roundedRectBackgroundRectArrays count],
-             @"The number of tuples must always be equal to the number of rounded rect background rect arrays");
-
-    CGContextRef context = UIGraphicsGetCurrentContext();
-    CGContextSaveGState(context);
-    for (NSInteger i=0; i<[tuples count]; i++) {
-        HKWRoundedRectBackgroundAttributeValue *data = tuples[i][1];
-        CGContextSetStrokeColorWithColor(context, [data.backgroundColor CGColor]);
-        CGContextSetFillColorWithColor(context, [data.backgroundColor CGColor]);
-
-        for (NSValue *value in roundedRectBackgroundRectArrays[i]) {
-            CGRect unionRect = [value CGRectValue];
-            // Adjust the rect to increase its padding, and to position it correctly
-            unionRect.origin.x += origin.x;
-            unionRect.origin.y += origin.y - (0.5*self.additionalHeight);
-            unionRect.size.height += self.additionalHeight;
-
-            if (unionRect.size.width < 2*self.cornerRadius || unionRect.size.height < 2*self.cornerRadius) {
-                continue;
-            }
-
-            CGPathRef p = CGPathCreateWithRoundedRect(unionRect, self.cornerRadius, self.cornerRadius, NULL);
-            CGContextAddPath(context, p);
-            CGContextStrokePath(context);
-            CGPathRelease(p);
-            p = CGPathCreateWithRoundedRect(unionRect, self.cornerRadius, self.cornerRadius, NULL);
-            CGContextAddPath(context, p);
-            CGContextFillPath(context);
-            CGPathRelease(p);
+        // -------------------------------------------------------------------------------------------------------------- //
+        // Handle drawing background for the new rounded rect background attribute.
+        NSArray *tuples = [self roundedRectBackgroundAttributeTuplesInTextStorage:self.textStorage
+                                                                      withinRange:glyphsToShow];
+        NSArray *roundedRectBackgroundRectArrays = [self rectArraysForRoundedRectBackgroundAttributeTuples:tuples
+                                                                                           inTextContainer:self.textContainers[0]];
+        if ([roundedRectBackgroundRectArrays count] == 0) {
+            return;
         }
+
+        NSAssert([tuples count] == [roundedRectBackgroundRectArrays count],
+                 @"The number of tuples must always be equal to the number of rounded rect background rect arrays");
+
+        CGContextRef context = UIGraphicsGetCurrentContext();
+        CGContextSaveGState(context);
+        for (NSInteger i=0; i<[tuples count]; i++) {
+            HKWRoundedRectBackgroundAttributeValue *data = tuples[i][1];
+            CGContextSetStrokeColorWithColor(context, [data.backgroundColor CGColor]);
+            CGContextSetFillColorWithColor(context, [data.backgroundColor CGColor]);
+
+            for (NSValue *value in roundedRectBackgroundRectArrays[i]) {
+                CGRect unionRect = [value CGRectValue];
+                // Adjust the rect to increase its padding, and to position it correctly
+                unionRect.origin.x += origin.x;
+                unionRect.origin.y += origin.y - (0.5*self.additionalHeight);
+                unionRect.size.height += self.additionalHeight;
+
+                if (unionRect.size.width < 2*self.cornerRadius || unionRect.size.height < 2*self.cornerRadius) {
+                    continue;
+                }
+
+                CGPathRef p = CGPathCreateWithRoundedRect(unionRect, self.cornerRadius, self.cornerRadius, NULL);
+                CGContextAddPath(context, p);
+                CGContextStrokePath(context);
+                CGPathRelease(p);
+                p = CGPathCreateWithRoundedRect(unionRect, self.cornerRadius, self.cornerRadius, NULL);
+                CGContextAddPath(context, p);
+                CGContextFillPath(context);
+                CGPathRelease(p);
+            }
+        }
+        CGContextRestoreGState(context);
     }
-    CGContextRestoreGState(context);
 }
 
 
@@ -99,18 +101,22 @@ typedef NSMutableArray RectValuesBuffer;
         adjustedRange = range;
     }
 
-    // Go through the attributes in the given range and pick out the ones that correspond to the
-    [textStorage enumerateAttributesInRange:adjustedRange
-                                    options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired
-                                 usingBlock:^(NSDictionary *attrs, NSRange range, BOOL *stop) {
-                                     for (NSString *attr in attrs) {
-                                         if (attr == HKWRoundedRectBackgroundAttributeName) {
-                                             RoundedRectAttributeTuple *tuple = @[[NSValue valueWithRange:range],
-                                                                                  attrs[attr]];
-                                             [buffer addObject:tuple];
+    @try {
+        // Go through the attributes in the given range and pick out the ones that correspond to the
+        [textStorage enumerateAttributesInRange:adjustedRange
+                                        options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired
+                                     usingBlock:^(NSDictionary *attrs, NSRange range, BOOL *stop) {
+                                         for (NSString *attr in attrs) {
+                                             if (attr == HKWRoundedRectBackgroundAttributeName) {
+                                                 RoundedRectAttributeTuple *tuple = @[[NSValue valueWithRange:range],
+                                                                                      attrs[attr]];
+                                                 [buffer addObject:tuple];
+                                             }
                                          }
-                                     }
-                                 }];
+                                     }];
+    } @catch (NSException *exception) {
+        NSLog(@"HKWLayoutManager: %@", exception.reason);
+    }
     return [NSArray arrayWithArray:buffer];
 }
 

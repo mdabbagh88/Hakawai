@@ -96,14 +96,14 @@
                                searchType:(HKWMentionsSearchType)type
                          controlCharacter:(unichar)character
                                completion:(void (^)(NSArray *, BOOL, BOOL))completionBlock {
-    if (!completionBlock) {
+    if (!completionBlock || character == '\0') {
         return;
     }
     NSArray *data = self.fakeData;
 
     // This #define determines whether or not the first response should be returned in a synchronous or asynchronous
     //  manner. This is useful for testing purposes.
-#define SHOULD_BE_SYNCHRONOUS
+//#define SHOULD_BE_SYNCHRONOUS
 
 #ifdef SHOULD_BE_SYNCHRONOUS
     NSMutableArray *buffer = [NSMutableArray array];
